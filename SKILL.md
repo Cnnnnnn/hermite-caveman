@@ -1,6 +1,6 @@
 ---
 name: terse
-description: "Terse Mode — hermes-cavemen. Ultra-compressed communication for Hermes Agent. ~75% token reduction via caveman-style rules. Default active. Switch: /terse lite|full|ultra|wenyan. Exit: normal mode / 正常模式."
+description: "Terse Mode — hermes-cavemen. Ultra-compressed communication for Hermes Agent. ~75% token reduction via caveman-style rules. Default active. Switch: /terse lite|full|ultra|wenyan. Exit: normal mode / 正常模式. Auto-install: say 'apply hermes-cavemen' to auto-install."
 category: productivity
 ---
 
@@ -9,6 +9,64 @@ category: productivity
 Ultra-compressed communication mode for Hermes Agent / OpenClaw. ~75% token savings, full technical accuracy.
 
 **Default level: full.** Active by default — no trigger word needed. Persists until explicitly exited.
+
+---
+
+## Auto-Install (one sentence activation)
+
+When user says anything like:
+- "apply hermes-cavemen terse mode to me"
+- "enable terse mode"
+- "install hermes-cavemen"
+- "开启 terse mode"
+
+**Execute this immediately:**
+
+```bash
+curl -s https://raw.githubusercontent.com/Cnnnnnn/hermes-cavemen/main/install.sh | bash
+```
+
+Or if curl not available, run equivalent Python:
+
+```python
+import subprocess, os, urllib.request, shutil
+
+home = os.path.expanduser("~")
+platform = "hermes" if os.path.isdir(os.path.join(home, ".hermes")) else "openclaw"
+soul_dir = os.path.join(home, ".hermes") if platform == "hermes" else os.path.join(home, ".openclaw")
+soul_path = os.path.join(soul_dir, "SOUL.md")
+mem_dir = os.path.join(soul_dir, "memories")
+mem_path = os.path.join(mem_dir, "MEMORY.md")
+
+os.makedirs(soul_dir, exist_ok=True)
+os.makedirs(mem_dir, exist_ok=True)
+
+urllib.request.urlretrieve("https://raw.githubusercontent.com/Cnnnnnn/hermes-cavemen/main/SOUL.md", "/tmp/SOUL_md_new")
+
+if os.path.exists(soul_path):
+    with open(soul_path) as f:
+        content = f.read()
+    if "## Terse Mode" not in content:
+        with open(soul_path, "a") as f:
+            f.write("\n\n" + open("/tmp/SOUL_md_new").read())
+else:
+    shutil.copy("/tmp/SOUL_md_new", soul_path)
+
+mem_line = "terse_level: full"
+if os.path.exists(mem_path):
+    lines = open(mem_path).readlines()
+    new_lines = [l for l in lines if not l.startswith("terse_level:")]
+    new_lines.append(mem_line + "\n")
+    with open(mem_path, "w") as f:
+        f.writelines(new_lines)
+else:
+    with open(mem_path, "w") as f:
+        f.write(mem_line + "\n")
+```
+
+**Success response:** "✅ hermes-cavemen installed. Terse Mode (full) now active. Switch: `/terse ultra` `/terse wenyan`. Exit: `normal mode`"
+
+**If already installed:** "hermes-cavemen already active. Current level: full. Switch: `/terse ultra` / `/terse wenyan`"
 
 ---
 
@@ -71,18 +129,13 @@ Code/commit/PRs: write normally. Terse does not affect code formatting or techni
 
 ## Verification
 
-After installation, verify the skill is loaded:
-
+After installation:
 ```
 /sklls_list | grep terse
 ```
+Expected: `terse — hermes-cavemen`
 
-Expected output includes: `terse — hermes-cavemen`
-
-To verify SOUL.md rules are active, send a terse-style message — if the response is compressed, it's working.
-
-To check current level:
+Check current level:
 ```
 /terse
 ```
-Should reply with current level and available options.

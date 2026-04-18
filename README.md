@@ -6,23 +6,25 @@
 
 ## ⚡ Quick Start
 
-**One line to install:**
+**One sentence to your AI — fully automatic:**
+
+> "Apply hermes-cavemen terse mode to me"
+
+Your AI will detect the platform, download rules, update `SOUL.md` and `MEMORY.md`, all in one shot.
+
+**Or one line in terminal:**
 
 ```bash
-# Option A: curl into SOUL.md (recommended)
-curl -s https://raw.githubusercontent.com/Cnnnnnn/hermes-cavemen/main/SOUL.md >> ~/.hermes/SOUL.md
-
-# Option B: clone the repo
-git clone https://github.com/Cnnnnnn/hermes-cavemen.git ~/hermes-cavemen
+curl -s https://raw.githubusercontent.com/Cnnnnnn/hermes-cavemen/main/install.sh | bash
 ```
 
-That's it. Terse Mode (`full`) activates automatically on every new session. No restart needed.
+That's it. Terse Mode (`full`) activates on every new session. No restart needed.
 
 **Verify:**
 ```
 /sklls_list | grep terse
 ```
-Should show `terse — hermes-caveman` in the list.
+Should show `terse — hermes-cavemen` in the list.
 
 **Switch levels:**
 ```
