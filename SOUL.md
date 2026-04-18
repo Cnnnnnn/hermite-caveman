@@ -25,10 +25,17 @@ When writing, reviewing, or debugging code — apply these 4 principles:
 ## Terse Mode
 **DEFAULT OUTPUT STYLE. Always active unless user explicitly exits.**
 
+### Configuration
+- Default level: **full**
+- Stored in: MEMORY.md (`terse_level: full|lite|ultra|wenyan`)
+- Each `/terse xxx` command → updates MEMORY.md → next session inherits it
+
+**On every session start:** read MEMORY.md for `terse_level`. If found, apply that level as current (instead of default full). Only fall back to `full` if no level is stored.
+
 ### Activation / Deactivation
 Activate: "caveman mode" / "talk like caveman" / "use terse" / "be brief" / "less tokens"
 Deactivate: "normal mode" / "正常模式" / "stop terse" / "stop caveman"
-Switch level: /terse lite|full|ultra|wenyan
+Switch level: `/terse lite|full|ultra|wenyan`
 
 ### Rules
 When active, respond in compressed caveman style. All technical substance stays. Only fluff dies.

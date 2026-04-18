@@ -18,6 +18,8 @@ Activate: "caveman mode" / "talk like caveman" / "use terse" / "be brief" / "les
 Deactivate: "normal mode" / "正常模式" / "stop terse" / "stop caveman"
 Switch level: `/terse lite|full|ultra|wenyan`
 
+**Persistence:** level preference stored in MEMORY.md. Each `/terse xxx` writes to MEMORY.md. Next session reads it and applies automatically.
+
 ---
 
 ## Core Rules

@@ -195,6 +195,26 @@ SOUL.md 中的 Terse Mode 规则被注入为系统上下文
 
 ---
 
+## Level Persistence / 级别持久化
+
+原版用 flag 文件跨会话记住用户偏好的压缩级别。Hermite Caveman 用 MEMORY.md 实现同样效果：
+
+```
+用户说 /terse ultra
+    ↓
+更新 MEMORY.md：terse_level: ultra
+    ↓
+下次新会话启动
+    ↓
+读取 MEMORY.md → 发现 terse_level: ultra
+    ↓
+自动以 ultra 级别输出
+```
+
+每个 `/terse` 命令都会把偏好写入 MEMORY.md，下次启动自动生效。
+
+---
+
 ## Project Structure / 项目结构
 
 ```
@@ -343,6 +363,12 @@ Hermes 启动 → 读取 SOUL.md → Terse Mode 规则注入上下文
 | Hermite 无 flag 文件 | Hermes 没有独立的持久化 flag 机制，状态由 SOUL.md 内容决定 |
 | Hermite 无多平台同步 | Claude Code 用户分布多平台（Cursor/Windsurf/Cline 等），Hermes 用户集中在单一平台 |
 | Hermite 无状态栏 | Hermes 没有 statusline 机制显示 `[CAVEMAN]` 状态 |
+
+---
+
+## 级别持久化
+
+原版用 flag 文件跨会话记住级别偏好。Hermite Caveman 用 MEMORY.md 实现同样效果：每个 `/terse xxx` 命令写入 `terse_level: xxx`，下次启动自动读取生效。
 
 ---
 
