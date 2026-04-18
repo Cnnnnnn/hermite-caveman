@@ -26,7 +26,7 @@ detect_platform() {
 PLATFORM=$(detect_platform)
 echo "[hermes-cavemen] Detected platform: $PLATFORM"
 
-SOUL_TARGET=""
+SOUL_DIR=""
 MEMORY_PATH=""
 
 case "$PLATFORM" in
@@ -55,35 +55,86 @@ if [ ! -s /tmp/SOUL_md_new ]; then
 fi
 
 # 追加 Terse Mode 规则（如果还没有）
+INSTALLED=0
 if [ -f "${SOUL_TARGET}" ]; then
     if grep -q "## Terse Mode" "${SOUL_TARGET}"; then
-        echo "[hermes-cavemen] SOUL.md already has Terse Mode — skipping"
+        INSTALLED=1
     else
         echo "" >> "${SOUL_TARGET}"
         echo "" >> "${SOUL_TARGET}"
-        cat /tmp/SOUL_md_new >> "${SOUL_TARGET}"
+        python3 -c "
+with open('/tmp/SOUL_md_new') as f:
+    new = f.read()
+with open('${SOUL_TARGET}', 'a') as f:
+    f.write(new)
+"
         echo "[hermes-cavemen] Appended Terse Mode to existing SOUL.md"
     fi
 else
-    cp /tmp/SOUL_md_new "${SOUL_TARGET}"
+    python3 -c "
+import shutil
+shutil.copy('/tmp/SOUL_md_new', '${SOUL_TARGET}')
+"
     echo "[hermes-cavemen] Created new SOUL.md"
 fi
 
 # 写 MEMORY.md
 MEMORY_LINE="terse_level: full"
-if [ -f "${MEMORY_PATH}" ]; then
-    if grep -q "^terse_level:" "${MEMORY_PATH}"; then
-        sed -i "s/^terse_level:.*/${MEMORY_LINE}/" "${MEMORY_PATH}"
-    else
-        echo "${MEMORY_LINE}" >> "${MEMORY_PATH}"
-    fi
-else
-    mkdir -p "$(dirname "${MEMORY_PATH}")"
-    echo "${MEMORY_LINE}" > "${MEMORY_PATH}"
-fi
+python3 -c "
+import os
+mem_path = '${MEMORY_PATH}'
+os.makedirs(os.path.dirname(mem_path), exist_ok=True)
+
+if os.path.exists(mem_path):
+    with open(mem_path) as f:
+        content = f.read()
+    lines = content.split('\n')
+    found = False
+    for i, line in enumerate(lines):
+        if line.strip().startswith('terse_level:'):
+            lines[i] = '${MEMORY_LINE}'
+            found = True
+            break
+    if not found:
+        lines.append('${MEMORY_LINE}')
+    with open(mem_path, 'w') as f:
+        f.write('\n'.join(lines))
+else:
+    with open(mem_path, 'w') as f:
+        f.write('${MEMORY_LINE}\n')
+"
 echo "[hermes-cavemen] MEMORY.md updated — terse_level: full"
 
+# ===== 版本检查（已安装时） =====
+if [ "${INSTALLED}" = "1" ]; then
+    echo ""
+    echo "[hermes-cavemen] Terse Mode already installed — checking for updates..."
+
+    REMOTE_VERSION=$(curl -s "${RAW}/VERSION" 2>/dev/null | tr -d '[:space:]' || echo "")
+    LOCAL_VERSION=""
+    if [ -f "${SOUL_DIR}/.hermes-cavemen-version" ]; then
+        LOCAL_VERSION=$(cat "${SOUL_DIR}/.hermes-cavemen-version" 2>/dev/null | tr -d '[:space:]')
+    elif grep -q "hermes-cavemen" "${SOUL_TARGET}" 2>/dev/null; then
+        LOCAL_VERSION="1.0.0"
+    fi
+
+    if [ -n "$REMOTE_VERSION" ] && [ -n "$LOCAL_VERSION" ] && [ "$LOCAL_VERSION" != "$REMOTE_VERSION" ]; then
+        echo "[hermes-cavemen] Update available: v${LOCAL_VERSION} → v${REMOTE_VERSION}"
+        echo ""
+        echo "Run to update:"
+        echo "  curl -s ${RAW}/update.sh | bash"
+        echo ""
+    elif [ -n "$REMOTE_VERSION" ]; then
+        echo "[hermes-cavemen] Already on latest version (v${REMOTE_VERSION}) ✓"
+    fi
+fi
+
+# 记录当前版本
+if [ -n "$REMOTE_VERSION" ]; then
+    echo "$REMOTE_VERSION" > "${SOUL_DIR}/.hermes-cavemen-version"
+fi
+
 echo ""
-echo "[hermes-cavemen] ✓ 安装完成！重启 Hermes/OpenClaw 后 Terse Mode (full) 自动生效"
-echo "[hermes-cavemen] 切换级别: /terse ultra  /terse wenyan"
-echo "[hermes-cavemen] 退出: normal mode / 正常模式"
+echo "[hermes-cavemen] ✓ Install complete! Restart session — Terse Mode (full) active"
+echo "[hermes-cavemen] Switch: /terse ultra | /terse wenyan | /terse wenyan-lite"
+echo "[hermes-cavemen] Exit:   normal mode / 正常模式"

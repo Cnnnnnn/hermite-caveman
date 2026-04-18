@@ -28,9 +28,10 @@ Should show `terse — hermes-cavemen` in the list.
 
 **Switch levels:**
 ```
-/terse ultra     # max compression
-/terse wenyan    # 文言文
-/normal mode     # exit
+/terse ultra           # max compression
+/terse wenyan          # 文言文
+/terse wenyan-lite     # 半文言
+/normal mode           # exit
 ```
 
 ---
@@ -73,8 +74,11 @@ Replace your `SOUL.md` entirely with [`SOUL.md`](SOUL.md) from this repo.
 | `full` | Classic caveman. Fragments OK, articles dropped. **← Default** | "New object ref each render. Inline object prop = new ref = re-render. useMemo." |
 | `ultra` | Max compression. Abbreviations + `→` for causality. | "Inline obj prop → new ref → re-render. `useMemo`." |
 | `wenyan` | 文言文. Classical Chinese terseness. | "物出新參照，致重繪。useMemo Wrap之。" |
+| `wenyan-lite` | 半文言. | "組件頻重繪，以每繪新生對象參照故。以 useMemo 包之。" |
+| `wenyan-full` | 纯文言. | "物出新參照，致重繪。useMemo ·Wrap之。" |
+| `wenyan-ultra` | 极简文言. | "新參照→重繪。useMemo Wrap。" |
 
-**Switch:** `/terse lite|full|ultra|wenyan`
+**Switch:** `/terse lite|full|ultra|wenyan|wenyan-lite|wenyan-full|wenyan-ultra`
 **Exit:** `normal mode` / `正常模式`
 
 ## Auto-Clarity
@@ -87,6 +91,10 @@ Terse pauses automatically for:
 - Multi-step sequences where fragment order risks misread
 
 Resumes after the clear part is done.
+
+## Code Boundaries
+
+Code, commit messages, PR descriptions, and technical terms are written normally — terse does not affect them. Inline code comments (inside \`\`\` blocks) are also preserved verbatim. Terseness applies only to natural language output text.
 
 ## Level Persistence
 
@@ -101,7 +109,7 @@ Each `/terse xxx` command writes the preference to `MEMORY.md`. On every new ses
 | Persistence | `~/.claude/.caveman-active` flag file | `MEMORY.md` |
 | Multi-platform sync | CI auto-syncs to 8+ platforms | Single platform, no sync needed |
 | Statusline badge | `[CAVEMAN]` in Claude Code UI | Not available |
-| Wenyan sub-levels | lite / full / ultra | lite / full / ultra |
+| Wenyan sub-levels | lite / full / ultra | lite / full / ultra + wenyan-lite/full/ultra |
 
 **Why the differences?** Hermes / OpenClaw does not expose Claude Code's Hook API, flag file mechanism, statusline, or plugin system. hermes-cavemen achieves equivalent behavior through SOUL.md rules injection, which Hermes reads on every session start.
 
@@ -128,20 +136,30 @@ See [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md) if anything breaks.
 
 ```
 hermes-cavemen/
-├── README.md           ← Bilingual intro (this file)
-├── SOUL.md             ← Complete Terse Mode rules
-├── SKILL.md            ← Skill format (optional)
-├── install.sh          ← One-line installer
-├── update.sh           ← Self-Update script
-├── uninstall.sh        ← Uninstall script
-├── verify.sh           ← Installation verifier
-├── TROUBLESHOOTING.md  ← Common issues + fixes
-├── CHANGELOG.md        ← Version history
-├── VERSION             ← Current version
-└── LICENSE             ← MIT
+├── README.md              ← Bilingual intro (this file)
+├── SOUL.md                ← Complete Terse Mode rules
+├── SKILL.md               ← Skill format (optional)
+├── install.sh             ← One-line installer
+├── update.sh              ← Self-Update script
+├── uninstall.sh           ← Uninstall script
+├── verify.sh              ← Installation verifier
+├── TROUBLESHOOTING.md     ← Common issues + fixes
+├── CHANGELOG.md           ← Version history
+├── VERSION                ← Current version
+├── .github/
+│   └── ISSUE_TEMPLATES/   ← Bug / Feature / Verified templates
+└── LICENSE                ← MIT
 ```
 
 Credit: Based on [JuliusBrussee/caveman](https://github.com/JuliusBrussee/caveman) (37.6k stars, MIT License).
+
+## Quick Reference Card
+
+Visual one-page cheatsheet — all levels, commands, rules, and Auto-Clarity in one image:
+
+![hermes-cavemen Quick Reference](cheatsheet.svg)
+
+*Download: [cheatsheet.svg](cheatsheet.svg) · [cheatsheet.png](cheatsheet.png) (high-res)*
 
 ---
 
@@ -152,11 +170,7 @@ Credit: Based on [JuliusBrussee/caveman](https://github.com/JuliusBrussee/cavema
 **一行安装：**
 
 ```bash
-# 方式 A：curl 追加到 SOUL.md（推荐）
-curl -s https://raw.githubusercontent.com/Cnnnnnn/hermes-cavemen/main/SOUL.md >> ~/.hermes/SOUL.md
-
-# 方式 B：clone 仓库
-git clone https://github.com/Cnnnnnn/hermes-cavemen.git ~/hermes-cavemen
+curl -s https://raw.githubusercontent.com/Cnnnnnn/hermes-cavemen/main/install.sh | bash
 ```
 
 搞定。Terse Mode（`full` 级别）自动激活，无需重启。
@@ -165,13 +179,14 @@ git clone https://github.com/Cnnnnnn/hermes-cavemen.git ~/hermes-cavemen
 ```
 /sklls_list | grep terse
 ```
-输出中有 `terse — hermes-caveman` 即为成功。
+输出中有 `terse — hermes-cavemen` 即为成功。
 
 **切换级别：**
 ```
-/terse ultra     # 极致压缩
-/terse wenyan    # 文言文
-/normal mode     # 退出
+/terse ultra           # 极致压缩
+/terse wenyan          # 文言文
+/terse wenyan-lite     # 半文言
+/normal mode           # 退出
 ```
 
 ## 是什么
@@ -192,6 +207,16 @@ Hermes Agent / OpenClaw 版本的 [caveman](https://github.com/JuliusBrussee/cav
 
 > ⚠️ 会覆盖原有所有内容，请先备份。
 
+## 效果对比
+
+![Terse Mode Demo](demo.png)
+
+| 普通输出（87 tokens） | Terse — full（24 tokens） |
+|---------------------|-------------------------|
+| "当然！我很高兴帮你解决这个问题。你遇到的问题很可能是由于认证中间件没有正确验证 token 过期时间导致的。让我看一下并建议一个修复方案。" | "认证中间件 bug。Token 过期检查用了 < 而不是 <=。修：" |
+
+同样答案。减少 75% 字数。脑子还是那个脑子。
+
 ## 级别
 
 | 级别 | 风格 | 示例 |
@@ -200,8 +225,11 @@ Hermes Agent / OpenClaw 版本的 [caveman](https://github.com/JuliusBrussee/cav
 | `full` | 经典 caveman 风格，允许碎片化句子。**← 默认** | "New object ref each render. Inline object prop = new ref = re-render. useMemo." |
 | `ultra` | 极致压缩。缩写 + `→` 表示因果。 | "Inline obj prop → new ref → re-render. `useMemo`." |
 | `wenyan` | 文言文风格。 | "物出新參照，致重繪。useMemo Wrap之。" |
+| `wenyan-lite` | 半文言。 | "組件頻重繪，以每繪新生對象參照故。以 useMemo 包之。" |
+| `wenyan-full` | 纯文言。 | "物出新參照，致重繪。useMemo ·Wrap之。" |
+| `wenyan-ultra` | 极简文言。 | "新參照→重繪。useMemo Wrap。" |
 
-**切换：** `/terse lite|full|ultra|wenyan`
+**切换：** `/terse lite|full|ultra|wenyan|wenyan-lite|wenyan-full|wenyan-ultra`
 **退出：** `正常模式` / `normal mode`
 
 ## 自动退出情况
@@ -214,6 +242,10 @@ Hermes Agent / OpenClaw 版本的 [caveman](https://github.com/JuliusBrussee/cav
 - 多步骤指令可能产生误解时
 
 明确部分完成后自动恢复。
+
+## 代码边界
+
+代码、commit 消息、PR 描述、技术术语均正常书写，不受 terse 影响。`\`\`\` 代码块内的注释也保持原样。Terse 只作用于自然语言输出文字。
 
 ## 级别持久化
 
@@ -228,7 +260,7 @@ Hermes Agent / OpenClaw 版本的 [caveman](https://github.com/JuliusBrussee/cav
 | 持久化 | `~/.claude/.caveman-active` | `MEMORY.md` |
 | 多平台同步 | CI 自动同步到 8+ 平台 | 单平台，无需同步 |
 | 状态栏显示 | Claude Code UI 中的 `[CAVEMAN]` | 不支持 |
-| Wenyan 子级别 | lite / full / ultra | lite / full / ultra |
+| Wenyan 子级别 | lite / full / ultra | lite / full / ultra + wenyan-lite/full/ultra |
 
 **差异原因：** Hermes / OpenClaw 不提供 Claude Code 的 Hook API、flag 文件机制、状态栏和插件系统。hermes-cavemen 通过 SOUL.md 规则注入实现等效行为——Hermes 每次启动读取 SOUL.md，规则自动生效。
 
@@ -255,17 +287,28 @@ curl -s https://raw.githubusercontent.com/Cnnnnnn/hermes-cavemen/main/uninstall.
 
 ```
 hermes-cavemen/
-├── README.md           ← 双语介绍（本文件）
-├── SOUL.md             ← 完整 Terse Mode 规则
-├── SKILL.md            ← Skill 格式（可选）
-├── install.sh          ← 一键安装脚本
-├── update.sh           ← 自我更新脚本
-├── uninstall.sh        ← 卸载脚本
-├── verify.sh           ← 安装验证脚本
-├── TROUBLESHOOTING.md  ← 常见问题与解决方案
-├── CHANGELOG.md        ← 版本历史
-├── VERSION             ← 当前版本
-└── LICENSE             ← MIT
+├── README.md              ← 双语介绍（本文件）
+├── SOUL.md                ← 完整 Terse Mode 规则
+├── SKILL.md               ← Skill 格式（可选）
+├── install.sh             ← 一键安装脚本
+├── update.sh              ← 自我更新脚本
+├── uninstall.sh           ← 卸载脚本
+├── verify.sh              ← 安装验证脚本
+├── TROUBLESHOOTING.md     ← 常见问题与解决方案
+├── CHANGELOG.md           ← 版本历史
+├── VERSION                ← 当前版本
+├── .github/
+│   └── ISSUE_TEMPLATES/   ← Bug / Feature / Verified 模板
+└── LICENSE                ← MIT
 ```
+
+## 速查卡
+
+可视化单页参考——所有级别、命令、规则、Auto-Clarity 一图掌握：
+
+![hermes-cavemen 速查卡](cheatsheet.svg)
+
+*下载：[cheatsheet.svg](cheatsheet.svg) · [cheatsheet.png](cheatsheet.png)（高清版）*
+
 
 致谢：基于 [JuliusBrussee/caveman](https://github.com/JuliusBrussee/caveman)（37.6k stars，MIT License）。
