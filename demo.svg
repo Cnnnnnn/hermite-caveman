@@ -14,7 +14,7 @@
   <rect width="1200" height="620" class="bg"/>
 
   <!-- Title -->
-  <text x="600" y="42" text-anchor="middle" class="label" fill="white" font-size="28">Hermite Cavemen — Terse Mode Demo</text>
+  <text x="600" y="42" text-anchor="middle" class="label" fill="white" font-size="28">hermes-cavemen — Terse Mode Demo</text>
   <text x="600" y="70" text-anchor="middle" class="body" fill="#a0a0a0" font-size="16">~75% token reduction, same technical accuracy</text>
 
   <!-- Top divider -->

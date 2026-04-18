@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Hermite Cavemen.
+All notable changes to hermes-cavemen.
 
 ## [1.0.0] — 2026-04-19
 
@@ -11,7 +11,7 @@ All notable changes to Hermite Cavemen.
 - SOUL.md startup hint (`[terse: level]` on session start)
 - VERSION file
 - CHANGELOG.md
-- Project renamed to `Hermes-cavemen`
+- Project renamed to `hermes-cavemen`
 
 ### Changed
 - README completely rewritten with Quick Start at top, bilingual anchor navigation
