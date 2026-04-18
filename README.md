@@ -44,10 +44,15 @@ A Hermes Agent / OpenClaw adaptation of [JuliusBrussee/caveman](https://github.c
 
 **Terse Mode is ON by default.** No plugin install needed — just copy rules into `SOUL.md`.
 
-New in v1.1:
-- **Adaptive Compression** — AI auto-selects best level by task type, language, and output length
-- **Multilingual Awareness** — handles Chinese/English mixed output naturally
-- **Enhanced verify.sh** — measures actual compression ratio per level with pass/fail
+New in v1.2:
+- **Conversation-Level Memory** — track explained topics, compress subsequent mentions more aggressively
+- **Semantic Density Detection** — high-density content (financial/technical terms) gets LESS compression
+- **AssertionTracker** — detect self-contradictions in long conversations, de-escalate to full
+- **User Preference Learning** — if user frequently upgrades/downgrades, silently adjust default level
+- **Wenyan Structural Rules** — grammar-based transformations, not word substitution
+- **Compression Quality Score** — verify.sh now measures fact/direction/action preservation, not just ratio
+
+v1.1 retained: **Adaptive Compression**, **Multilingual Awareness**, **Auto-Escalation**
 
 ## Before / After
 
@@ -136,7 +141,7 @@ Each `/terse xxx` command writes the preference to `MEMORY.md`. On every new ses
 
 ## Compression Verification
 
-Run the verify script to measure actual compression:
+Run the verify script to measure compression ratio and quality:
 
 ```bash
 # Built-in benchmark
@@ -144,9 +149,14 @@ curl -s https://raw.githubusercontent.com/Cnnnnnn/hermes-cavemen/main/verify.sh 
 
 # Test your own text
 curl -s https://raw.githubusercontent.com/Cnnnnnn/hermes-cavemen/main/verify.sh | bash -s -- "你的测试文字"
+
+# Quality-weighted scoring
+curl -s https://raw.githubusercontent.com/Cnnnnnn/hermes-cavemen/main/verify.sh | bash -s -- --quality "测试文字"
 ```
 
 Pass thresholds: lite ≥20%, full ≥40%, ultra ≥60%, wenyan ≥70%
+
+Quality dimensions: fact preservation (numbers), direction preservation (涨/跌/buy/sell), action preservation (修/查/fix)
 
 ## Implementation: Original vs hermes
 
@@ -246,10 +256,15 @@ Hermes Agent / OpenClaw 版本的 [caveman](https://github.com/JuliusBrussee/cav
 
 **Terse Mode 默认开启。** 无需手动激活。
 
-v1.1 新功能：
-- **自适应压缩** — AI 根据任务类型、语言、输出长度自动选择最佳级别
-- **多语言感知** — 中英混合输出场景智能处理
-- **增强 verify.sh** — 量化各级别压缩率，pass/fail 判定
+v1.2 新功能：
+- **对话级记忆** — 记录已解释的话题，后续引用更激进压缩
+- **语义密度检测** — 高密度内容（财务/技术术语）获得更少压缩
+- **断言追踪器** — 检测长对话中的自我矛盾，降级至 full 并提示
+- **用户偏好学习** — 用户频繁手动升降级时静默调整默认级别
+- **文言文结构规则** — 基于语法结构转换，非简单词汇替换
+- **压缩质量评分** — verify.sh 现在衡量事实/方向/动作保留，不只是比率
+
+v1.1 已有：**自适应压缩**、**多语言感知**、**自动升级（Auto-Escalation）**
 
 ## 安装方式
 
@@ -317,6 +332,70 @@ AI 根据上下文自动选择最合适的级别，无需手动切换。
 | 中英文段落交替 | 各段独立判断压缩 |
 | 纯英文输出 | 按英文规则压缩（删冠词、短同义词） |
 
+## 对话级记忆
+
+会话期间追踪「已覆盖话题」，后续引用更激进压缩：
+
+- **已陈述的关键事实**：下次提及 → 用标签/代词，不重复解释
+- **已解释的话题**：用户再次问起 → ultra 压缩（用户已知概念）
+- **已表达的偏好**：立即遵从（若偏好暗示更多细节则升 level）
+- **新信息引入**：加入会话上下文，供后续消息简洁引用
+
+此记忆为会话级——每次新会话重置。持久偏好写入 MEMORY.md。
+
+## 语义密度检测
+
+压缩强度根据信息密度调整，而非仅根据长度：
+
+| 密度 | 信号词 | 规则 |
+|------|--------|------|
+| **高** | PE/MACD/ROE/营收/北向资金/百分比 | 少压一级 |
+| **低** | 当然/可能/大概/我认为 | 多压一级 |
+| **中** | 混合 | 标准级别 |
+
+防止「干货被压、废话存活」——高价值内容得到保留。
+
+## 断言追踪器
+
+维护本次对话中已做关键断言的运行集合：
+
+- **持仓信息**：成本价、股数、公司名
+- **财务比率**：PE、PB、ROE、增长率
+- **方向性判断**：上涨/下跌/买入/卖出
+
+**若新输出与已有断言矛盾**：本次回复降级至 `full`，附加说明：`(断言冲突检测 — 以下澄清)`
+
+会话级，随会话重置。
+
+## 用户偏好学习
+
+根据用户手动干预历史调整默认级别：
+
+- `terse_upgrades`：用户手动升级 `/terse` 的次数
+- `terse_degrades`：用户手动降级或说「太简略了」的次数
+- 记录在 MEMORY.md，跨会话持久
+
+**规则：**
+- 最近 30 天内，upgrades − downgrades ≥ 3 → 默认级别静默升一级
+- 最近 30 天内，downgrades − upgrades ≥ 3 → 默认级别静默降一级
+
+显式 `/terse xxx` 永远优先。调整对用户不可见。
+
+## 文言文结构规则
+
+文言文压缩使用古典汉语语法转换，而非简单词汇替换：
+
+| 规则 | 示例 |
+|------|------|
+| 语序倒装 | 「X 的 Y」→「Y 之 X」 |
+| 主语省略 | 「我看到X，我分析Y」→「见X析Y」 |
+| 语气词去除 | 了/矣/焉/哉 → (去除) |
+| 动词优先 | 「check the price」→「查价格」 |
+| 经典对仗 | 买·卖 / 盈·亏 |
+| 名词动用 | 「策略」→「以策」 |
+
+英文技术术语保持原样（不翻译）。sed `s/the/ /g` 不是文言文——会产生乱码英文。
+
 ## 自动退出情况
 
 以下情况 Terse Mode 自动暂停，恢复正常输出：
@@ -336,9 +415,9 @@ AI 根据上下文自动选择最合适的级别，无需手动切换。
 
 每次执行 `/terse xxx` 时，偏好会写入 `MEMORY.md`。新会话启动时自动读取并应用，无需重复设置。
 
-## 压缩率验证
+## 压缩质量评分
 
-运行 verify 脚本测量实际压缩效果：
+运行 verify 脚本测量压缩效果与质量：
 
 ```bash
 # 内置基准测试
@@ -346,9 +425,14 @@ curl -s https://raw.githubusercontent.com/Cnnnnnn/hermes-cavemen/main/verify.sh 
 
 # 测试自定义文字
 curl -s https://raw.githubusercontent.com/Cnnnnnn/hermes-cavemen/main/verify.sh | bash -s -- "你的测试文字"
+
+# 质量加权评分
+curl -s https://raw.githubusercontent.com/Cnnnnnn/hermes-cavemen/main/verify.sh | bash -s -- --quality "测试文字"
 ```
 
 通过标准：lite ≥20%、full ≥40%、ultra ≥60%、wenyan ≥70%
+
+质量维度：事实保留（数字）、方向保留（涨/跌/买/卖）、动作保留（修/查/fix）
 
 ## 实现机制：原版 vs hermes-cavemen
 

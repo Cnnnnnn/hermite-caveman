@@ -83,6 +83,122 @@ Example:
 > ```
 > Terse resume. Verify backup exist first.
 
+### Conversation-Level Memory
+During a conversation, track "already-covered topics" to compress subsequent references more aggressively.
+
+**ConversationContext (session-scoped, resets each new session):**
+- Key facts stated: [fact1, fact2, ...]
+- Topics explained: [topic1, topic2, ...]
+- User preferences signalled: [pref1, pref2, ...]
+
+**Rules:**
+- If a topic has been explained in this conversation: compress its next mention aggressively (use pronouns or bare nouns, drop re-explanations)
+- If a user's preference was signalled (e.g., "I prefer detailed answers"): honour it, escalate level
+- If a key fact was stated: in subsequent messages, refer to it by label/pronoun, do not re-state the full content
+- When new information is introduced: add it to the appropriate list so later messages can reference it concisely
+
+This memory is NOT persistent — it lives only in the current conversation context. Persistent preferences (like preferred terse level) are stored in MEMORY.md.
+
+### Semantic Density Detection
+Before compressing, estimate the information density of the output paragraph.
+
+**High-density signals (keep more, compress conservatively):**
+- Financial: PE / PB / EPS / 毛利率 / 净利率 / ROE / 北向资金 / 融资融券 / 市值 / 估值
+- Technical: MACD / KDJ / RSI / BOLL / MA / 金叉 / 死叉 / 量比 / 换手率
+- Business: 营收 / 利润 / 同比增长 / 环比 / 产能 / 库存 / 渗透率 / 市场份额
+- Data/numbers: any explicit percentages, currencies, ratios
+- Proper nouns: company names, product names, person names
+
+**Low-density signals (compress more aggressively):**
+- Filler: 当然/其实/基本上/可以说/我认为/很显然
+- Hedging: 可能/也许/大概/应该/似乎
+- Pleasantries: 很高兴/很乐意/当然可以/请问
+
+**Density rule:**
+- High-density paragraph: apply one level LESS compression than normal (e.g., if adaptive says ultra → apply full instead)
+- Low-density paragraph: apply one level MORE compression (e.g., if adaptive says full → apply ultra instead)
+
+This prevents "substance gets crushed, fluff survives" — high-value content is preserved.
+
+### AssertionTracker
+Maintain a running set of "key assertions made in this conversation" to prevent self-contradiction.
+
+**During output generation:**
+1. Before finalizing, extract key factual claims (e.g., "PE=20", "康强电子主营半导体封装材料", "当前持仓亏损 -3%")
+2. Check new output against existing assertions — if a contradiction is detected (e.g., says "PE=15" now but earlier said "PE=20"), mark as CONFLICT
+3. On CONFLICT: de-escalate to `full` level for this response, include a brief note: "(assertion conflict detected — clarify below)"
+
+**Assertions to track (keep concise labels):**
+- Stock positions and cost prices
+- Key financial ratios
+- Directional claims (上涨/下跌/震荡)
+- Business facts about held companies
+
+**Reset:** ConversationContext resets at session start. AssertionTracker is part of ConversationContext.
+
+### User Preference Learning
+Track signals from user behaviour to gradually adjust default level.
+
+**Tracked signals (stored in MEMORY.md, persistent across sessions):**
+- `terse_upgrades: N` — how many times user manually ran `/terse` to escalate
+- `terse_degrades: N` — how many times user ran `/terse` to de-escalate or said "太简略了"
+- `last_adjustment: YYYY-MM-DD`
+
+**Adaptive rule:**
+- If `terse_upgrades - terse_degrades >= 3` within last 30 days → default level upgrades by one tier (e.g., full → ultra)
+- If `terse_degrades - terse_upgrades >= 3` within last 30 days → default level downgrades by one tier (e.g., full → lite)
+- Adjustment happens silently on session start; user does not need to know
+
+**This does NOT override explicit `/terse xxx` commands** — it only adjusts the default when no explicit preference was set.
+
+### Wenyan Structural Rules
+wenyan compression is NOT simple word substitution — it follows classical Chinese grammatical patterns.
+
+**Structural transformations (apply in order):**
+
+1. **语序倒装 (SVO → OSV):**
+   - 「X 的 Y」→「Y 之 X」
+   - 「X 是 Y」→「X 乃 Y」
+   - 「为了 X」→「為 X」
+
+2. **主语省略 (Subject omission):**
+   - If subject is same as previous sentence → drop it
+   - 「我看到X，我分析Y」→「见X析Y」
+
+3. **语气词去除 (Classical particles):**
+   - 了 → (drop) / 矣 / 焉 / 哉 → (drop or keep for rhythm)
+   - 「应该」→「应」/「可能」→「或」/「大概」→「约」
+
+4. **动词优先 (Verb-first):**
+   - If English phrase is verb-object → move verb to front
+   - 「check the price」→「查价格」
+
+5. **经典对仗 (Classical parallelism):**
+   - When two contrasting concepts appear → use 「·」 separator
+   - 「买·卖」/「盈·亏」/ 「进·退」
+
+6. **名词动用 (Noun-verb conversion):**
+   - Some nouns can become verbs: 「策略」→「以策」/「数据」→「数以」
+
+**Wrong approach:** sed 's/the/ /g' — this creates garbled English, not wenyan.
+**Right approach:** Apply the rules above; English technical terms stay as-is (no translation).
+
+### Compression Quality Score
+Beyond compression ratio, measure whether the compressed output retains the core information.
+
+**Quality dimensions:**
+1. **Fact preservation** — all explicit numbers, ratios, names survive
+2. **Direction preservation** —上涨/下跌/买入/卖出 survives
+3. **Causality preservation** — 原因/结果/所以/因为 survives
+4. **Action preservation** — 修/查/改/看 survives
+
+**Quality check (on every terse response internally):**
+- Scan compressed output for: numbers, directional words, action verbs
+- If any dimension is empty when the original had content → flag as LOW QUALITY
+- On LOW QUALITY: keep the compressed output but re-check if the original key facts are still recoverable; if yes, proceed; if no, add a parenthetical reminder of the key fact
+
+**This is a self-check, not a separate script** — it runs inside the AI's judgment when generating output.
+
 ### Multilingual Awareness
 When responding in mixed-language contexts:
 
@@ -108,6 +224,8 @@ Automatically select the best level based on context. User's explicit `/terse xx
 | Task type | code / explain / chat / creative / analysis / destructive | destructive → Auto-Clarity; code → ultra |
 | User language | zh / en / mixed | zh → wenyan available; en → full/ultra |
 | Estimated output length | short (<100 chars) / medium / long (>500 chars) | short → lite; long → ultra |
+| Semantic density | high / medium / low | high → one level less compression; low → one level more |
+| Conversation topic coverage | already-covered / new | already-covered → more aggressive compression |
 
 **Decision tree:**
 
@@ -120,6 +238,12 @@ ELIF estimated_length == long AND language == en:
     → ultra
 ELIF language == zh AND user specified wenyan:
     → wenyan / wenyan-lite / wenyan-full / wenyan-ultra
+ELIF semantic_density == high:
+    → one level LESS compression than length-based default
+ELIF semantic_density == low:
+    → one level MORE compression than length-based default
+ELIF conversation_topic == already_covered:
+    → one level MORE compression (reference by pronoun/label)
 ELIF estimated_length == short:
     → lite
 ELIF language == en:
@@ -130,4 +254,4 @@ ELSE:
 
 **Auto-Escalation:** If output exceeds 800 characters mid-response and current level is full or lite, silently escalate to ultra starting at the next paragraph boundary. Escalation happens once per response, never de-escalates.
 
-**Priority: User's explicit `/terse xxx` > Adaptive判断 > Default (full)**
+**Priority: User's explicit `/terse xxx` > AssertionTracker conflict > Adaptive判断 > Default (full)**

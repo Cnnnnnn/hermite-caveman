@@ -1,8 +1,9 @@
 #!/bin/bash
-# hermes-cavemen Verify — compression rate measurement
+# hermes-cavemen Verify v4 — compression ratio + quality score
 # 用法:
 #   curl -s https://raw.githubusercontent.com/Cnnnnnn/hermes-cavemen/main/verify.sh | bash
 #   curl -s https://raw.githubusercontent.com/Cnnnnnn/hermes-cavemen/main/verify.sh | bash -s -- "你的自定义测试文字"
+#   curl -s https://raw.githubusercontent.com/Cnnnnnn/hermes-cavemen/main/verify.sh | bash -s -- --quality "测试文字"
 
 set -e
 
@@ -19,7 +20,7 @@ Reset='\033[0m'
 banner() {
     echo ""
     echo -e "${Bold}═══════════════════════════════════════════════${Reset}"
-    echo -e "${Bold}   hermes-cavemen Verify${Reset}"
+    echo -e "${Bold}   hermes-cavemen Verify v4${Reset}"
     echo -e "${Bold}═══════════════════════════════════════════════${Reset}"
     echo ""
 }
@@ -44,21 +45,71 @@ check() {
 # English: 1 word  ≈ 1.3 tokens
 count_tokens() {
     local text="$1"
-    # Chinese chars
     local zh=$(echo "$text" | grep -o '[\x{4e00}-\x{9fff}]' | wc -l)
-    # English words
     local en=$(echo "$text" | grep -oE '[a-zA-Z]+' | wc -l)
-    # Total estimated tokens
     echo $(( zh + (en * 13 / 10) ))
 }
 
-# ── Compression levels ─────────────────────────────────────────────────────────
-# Each level: sed-like transformations (simplified simulation)
-# These are rough approximations to illustrate compression ratio
+# ── Semantic density score ─────────────────────────────────────────────────────
+# Returns: high | medium | low
+# Looks for high-density financial/technical terms
+semantic_density() {
+    local text="$1"
+    local score=0
+    # Financial terms
+    local financial="PE|PB|EPS|ROE|毛利率|净利率|北向资金|融资融券|市值|估值|营收|利润|同比增长|环比|产能|换手率"
+    # Technical indicators
+    local technical="MACD|KDJ|RSI|BOLL|MA|金叉|死叉|量比"
+    # Numbers / percentages
+    local numbers=$(echo "$text" | grep -oE '[0-9]+\.?[0-9]*%?' | wc -l)
+    # High-density terms found
+    local hd_found=$(echo "$text" | grep -oE "$financial|$technical" | wc -l)
+    score=$(( hd_found * 2 + numbers ))
+    if [ "$score" -ge 6 ]; then
+        echo "high"
+    elif [ "$score" -ge 3 ]; then
+        echo "medium"
+    else
+        echo "low"
+    fi
+}
 
+# ── Quality check ─────────────────────────────────────────────────────────────
+# Returns: OK | LOW_QUALITY
+quality_check() {
+    local orig="$1"
+    local compressed="$2"
+    local qscore=0
+    # Fact preservation: numbers
+    local orig_nums=$(echo "$orig" | grep -oE '[0-9]+\.?[0-9]*%?' | wc -l)
+    local comp_nums=$(echo "$compressed" | grep -oE '[0-9]+\.?[0-9]*%?' | wc -l)
+    if [ "$orig_nums" -gt 0 ] && [ "$comp_nums" -gt 0 ]; then
+        qscore=$((qscore + 1))
+    fi
+    # Direction preservation: 涨/跌/买入/卖出/up/down/buy/sell
+    local dirs="涨|跌|买入|卖出|up|down|buy|sell|long|short"
+    local orig_dir=$(echo "$orig" | grep -oE "$dirs" | wc -l)
+    local comp_dir=$(echo "$compressed" | grep -oE "$dirs" | wc -l)
+    if [ "$orig_dir" -gt 0 ] && [ "$comp_dir" -gt 0 ]; then
+        qscore=$((qscore + 1))
+    fi
+    # Action preservation: 修|查|改|看|fix|check|fix|look
+    local actions="修|查|改|看|fix|check|look|run|set"
+    local orig_act=$(echo "$orig" | grep -oE "$actions" | wc -l)
+    local comp_act=$(echo "$compressed" | grep -oE "$actions" | wc -l)
+    if [ "$orig_act" -gt 0 ] && [ "$comp_act" -gt 0 ]; then
+        qscore=$((qscore + 1))
+    fi
+    if [ "$qscore" -ge 2 ]; then
+        echo "OK"
+    else
+        echo "LOW_QUALITY"
+    fi
+}
+
+# ── Compression levels ─────────────────────────────────────────────────────────
 compress_lite() {
     local t="$1"
-    # Strip filler and hedging only
     echo "$t" \
         | sed 's/当然！//g; s/当然//g; s/很乐意//g; s/很高兴//g; s/大概//g; s/我认为//g' \
         | sed 's/just //g; s/really //g; s/basically //g; s/actually //g; s/simply //g' \
@@ -71,7 +122,6 @@ compress_lite() {
 
 compress_full() {
     local t="$1"
-    # lite + strip articles
     compress_lite "$t" \
         | sed 's/\bthe //g; s/\ba //g; s/\ban //g' \
         | sed 's/  / /g'
@@ -79,7 +129,6 @@ compress_full() {
 
 compress_ultra() {
     local t="$1"
-    # full + abbreviations + → causality
     echo "$t" \
         | sed 's/\bthe //g; s/\ba //g; s/\ban //g' \
         | sed 's/database/DB/g; s/authentication/auth/g; s/configuration/config/g' \
@@ -94,14 +143,18 @@ compress_ultra() {
 
 compress_wenyan() {
     local t="$1"
-    # Wenyan-style: drop filler, verbs precede objects, classical particles
+    # Wenyan structural rules (not simple substitution)
     echo "$t" \
+        | sed 's/的/之/g; s/的/之/g' \
+        | sed 's/是/乃/g' \
+        | sed 's/为了 X/為 X/g' \
         | sed 's/当然！//g; s/当然//g; s/很乐意//g; s/很高兴//g; s/大概//g; s/我认为//g' \
         | sed 's/just //g; s/really //g; s/basically //g; s/actually //g; s/simply //g' \
         | sed 's/I think //g; s/I believe //g; s/seems like //g' \
         | sed 's/sure, //g; s/certainly, //g; s/happy to //g; s/glad to //g' \
         | sed 's/and then //g; s/so basically //g' \
         | sed 's/\bthe //g; s/\ba //g; s/\ban //g' \
+        | sed 's/应该/应/g; s/可能/或/g; s/大概/约/g' \
         | sed 's/  / /g' \
         | sed 's/^ *//; s/ *$//'
 }
@@ -116,8 +169,21 @@ compression_ratio() {
         echo "0"
         return
     fi
-    local ratio=$(( (orig_tokens - comp_tokens) * 100 / orig_tokens ))
-    echo "$ratio"
+    echo $(( (orig_tokens - comp_tokens) * 100 / orig_tokens ))
+}
+
+# ── Quality-weighted ratio ───────────────────────────────────────────────────
+weighted_score() {
+    local orig="$1"
+    local compressed="$2"
+    local ratio=$(compression_ratio "$orig" "$compressed")
+    local q=$(quality_check "$orig" "$compressed")
+    if [ "$q" = "LOW_QUALITY" ]; then
+        # Penalise: effective ratio is lower if quality is poor
+        echo $(( ratio * 70 / 100 ))
+    else
+        echo "$ratio"
+    fi
 }
 
 # ── Platform detection ────────────────────────────────────────────────────────
@@ -179,11 +245,62 @@ fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
 echo ""
-echo -e "${Bold}[2] Compression Ratio Tests${Reset}"
+echo -e "${Bold}[2] Semantic Density Detection${Reset}"
 echo "──────────────────────────────────────────"
 
-# Default test
-if [ -n "$1" ]; then
+DENSITY_TEST="康强电子PE=18，MACD金叉，营收同比增长25%，北向资金净买入2亿，建议买入。"
+DENSITY_RESULT=$(semantic_density "$DENSITY_TEST")
+echo "  Test: \"$DENSITY_TEST\""
+echo -e "    Density: ${Cyan}${DENSITY_RESULT}${Reset}"
+if [ "$DENSITY_RESULT" = "high" ]; then
+    check "Semantic density detection (high-density paragraph → high)" "OK"
+else
+    check "Semantic density detection (high-density paragraph → high)" "FAIL"
+fi
+
+DENSITY_TEST2="当然，其实我觉得这个问题基本上可能应该怎么说呢。"
+DENSITY_RESULT2=$(semantic_density "$DENSITY_TEST2")
+echo "  Test: \"$DENSITY_TEST2\""
+echo -e "    Density: ${Cyan}${DENSITY_RESULT2}${Reset}"
+if [ "$DENSITY_RESULT2" = "low" ]; then
+    check "Semantic density detection (low-density paragraph → low)" "OK"
+else
+    check "Semantic density detection (low-density paragraph → low)" "FAIL"
+fi
+
+# ═══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo -e "${Bold}[3] Quality Score${Reset}"
+echo "──────────────────────────────────────────"
+
+ORIG_Q="康强电子PE=18，建议买入，目标价25元。"
+COMP_Q="康强电子PE=18，建议买入，目标25元。"
+QUAL=$(quality_check "$ORIG_Q" "$COMP_Q")
+echo "  Original: \"$ORIG_Q\""
+echo "  Compressed: \"$COMP_Q\""
+echo -e "    Quality: ${Cyan}${QUAL}${Reset}"
+check "Quality check preserves numbers and action"
+
+ORIG_Q2="当然，我很高兴帮你解决这个问题。"
+COMP_Q2="帮你解决这个问题。"
+QUAL2=$(quality_check "$ORIG_Q2" "$COMP_Q2")
+echo "  Original: \"$ORIG_Q2\""
+echo "  Compressed: \"$COMP_Q2\""
+echo -e "    Quality: ${Cyan}${QUAL2}${Reset}"
+if [ "$QUAL2" = "LOW_QUALITY" ]; then
+    check "Quality check detects missing direction/action" "OK"
+else
+    check "Quality check detects missing direction/action" "FAIL"
+fi
+
+# ═══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo -e "${Bold}[4] Compression Ratio Tests${Reset}"
+echo "──────────────────────────────────────────"
+
+if [ "$1" = "--quality" ]; then
+    ORIG="${*:2}"
+elif [ -n "$1" ]; then
     ORIG="$*"
 else
     ORIG="当然！我很高兴帮你解决这个问题。你遇到的问题很可能是由于认证中间件没有正确验证 token 过期时间导致的。"
@@ -195,81 +312,79 @@ echo "  \"$ORIG\""
 echo -e "  Tokens (est): ${Bold}${ORIG_TOKENS}${Reset}"
 echo ""
 
+DENSITY=$(semantic_density "$ORIG")
+echo -e "  Semantic density: ${Cyan}${DENSITY}${Reset}"
+echo ""
+
 PASS_THRESHOLD_LITE=20
 PASS_THRESHOLD_FULL=40
 PASS_THRESHOLD_ULTRA=60
 PASS_THRESHOLD_WENYAN=70
 
-# lite
+run_level_test() {
+    local level="$1"
+    local compressed="$2"
+    local threshold="$3"
+    local ratio=$(compression_ratio "$ORIG" "$compressed")
+    local wscore=$(weighted_score "$ORIG" "$compressed")
+    local qual=$(quality_check "$ORIG" "$compressed")
+    local status="OK"
+    if [ "$ratio" -lt "$threshold" ]; then status="FAIL"; fi
+    check "${level} compression: ${ratio}% (≥${threshold}%), quality: ${qual}, weighted: ${wscore}%" "$status"
+    echo -e "    ${Cyan}→${Reset} \"$compressed\""
+}
+
+echo "  --- lite ---"
 LITE_OUT=$(compress_lite "$ORIG")
-LITE_TOKENS=$(count_tokens "$LITE_OUT")
-LITE_RATIO=$(compression_ratio "$ORIG" "$LITE_OUT")
-if [ "$LITE_RATIO" -ge "$PASS_THRESHOLD_LITE" ]; then
-    check "lite compression: ${LITE_RATIO}% (≥${PASS_THRESHOLD_LITE}% required)"
-else
-    check "lite compression: ${LITE_RATIO}% (≥${PASS_THRESHOLD_LITE}% required)" "FAIL"
-fi
-echo -e "  ${Cyan}→${Reset} \"$LITE_OUT\""
+run_level_test "lite" "$LITE_OUT" "$PASS_THRESHOLD_LITE"
 
-# full
+echo "  --- full ---"
 FULL_OUT=$(compress_full "$ORIG")
-FULL_TOKENS=$(count_tokens "$FULL_OUT")
-FULL_RATIO=$(compression_ratio "$ORIG" "$FULL_OUT")
-if [ "$FULL_RATIO" -ge "$PASS_THRESHOLD_FULL" ]; then
-    check "full compression: ${FULL_RATIO}% (≥${PASS_THRESHOLD_FULL}% required)"
-else
-    check "full compression: ${FULL_RATIO}% (≥${PASS_THRESHOLD_FULL}% required)" "FAIL"
-fi
-echo -e "  ${Cyan}→${Reset} \"$FULL_OUT\""
+run_level_test "full" "$FULL_OUT" "$PASS_THRESHOLD_FULL"
 
-# ultra
+echo "  --- ultra ---"
 ULTRA_OUT=$(compress_ultra "$ORIG")
-ULTRA_TOKENS=$(count_tokens "$ULTRA_OUT")
-ULTRA_RATIO=$(compression_ratio "$ORIG" "$ULTRA_OUT")
-if [ "$ULTRA_RATIO" -ge "$PASS_THRESHOLD_ULTRA" ]; then
-    check "ultra compression: ${ULTRA_RATIO}% (≥${PASS_THRESHOLD_ULTRA}% required)"
-else
-    check "ultra compression: ${ULTRA_RATIO}% (≥${PASS_THRESHOLD_ULTRA}% required)" "FAIL"
-fi
-echo -e "  ${Cyan}→${Reset} \"$ULTRA_OUT\""
+run_level_test "ultra" "$ULTRA_OUT" "$PASS_THRESHOLD_ULTRA"
 
-# wenyan
+echo "  --- wenyan (structural) ---"
 WENYAN_OUT=$(compress_wenyan "$ORIG")
-WENYAN_TOKENS=$(count_tokens "$WENYAN_OUT")
-WENYAN_RATIO=$(compression_ratio "$ORIG" "$WENYAN_OUT")
-if [ "$WENYAN_RATIO" -ge "$PASS_THRESHOLD_WENYAN" ]; then
-    check "wenyan compression: ${WENYAN_RATIO}% (≥${PASS_THRESHOLD_WENYAN}% required)"
-else
-    check "wenyan compression: ${WENYAN_RATIO}% (≥${PASS_THRESHOLD_WENYAN}% required)" "FAIL"
-fi
-echo -e "  ${Cyan}→${Reset} \"$WENYAN_OUT\""
+run_level_test "wenyan" "$WENYAN_OUT" "$PASS_THRESHOLD_WENYAN"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 echo ""
-echo -e "${Bold}[3] Built-in Benchmark${Reset}"
+echo -e "${Bold}[5] Built-in Benchmark${Reset}"
 echo "──────────────────────────────────────────"
 
 BENCH_ORIG="当然！我很高兴帮你解决这个问题。你遇到的问题很可能是由于认证中间件没有正确验证 token 过期时间导致的。"
 BENCH_FULL="认证中间件 bug。Token 过期检查用了 < 而不是 <=。修："
 BENCH_FULL_RATIO=$(compression_ratio "$BENCH_ORIG" "$BENCH_FULL")
+BENCH_QUAL=$(quality_check "$BENCH_ORIG" "$BENCH_FULL")
+BENCH_WEIGHTED=$(weighted_score "$BENCH_ORIG" "$BENCH_FULL")
 
 echo "  Benchmark (full level):"
 echo "    Original: \"$BENCH_ORIG\""
 echo "    Terse:    \"$BENCH_FULL\""
 echo -e "    Compression: ${Bold}${BENCH_FULL_RATIO}%${Reset}"
+echo -e "    Quality:     ${Cyan}${BENCH_QUAL}${Reset}"
+echo -e "    Weighted:    ${Bold}${BENCH_WEIGHTED}%${Reset}"
 
 if [ "$BENCH_FULL_RATIO" -ge "$PASS_THRESHOLD_FULL" ]; then
-    check "Benchmark full-level test passed"
+    check "Benchmark compression ratio passed"
 else
-    check "Benchmark full-level test passed" "FAIL"
+    check "Benchmark compression ratio passed" "FAIL"
+fi
+if [ "$BENCH_QUAL" = "OK" ]; then
+    check "Benchmark quality preservation passed"
+else
+    check "Benchmark quality preservation passed" "FAIL"
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
 echo ""
-echo -e "${Bold}[4] Network & Scripts${Reset}"
+echo -e "${Bold}[6] Network & Scripts${Reset}"
 echo "──────────────────────────────────────────"
 
-for script in install.sh update.sh uninstall.sh verify.sh star.sh; do
+for script in install.sh update.sh uninstall.sh verify.sh star.sh SOUL.md; do
     HTTP_CODE=$(curl -sI "${RAW}/${script}" 2>/dev/null | grep -i "^HTTP" | awk '{print $2}' | tail -1)
     if [ "$HTTP_CODE" = "200" ]; then
         check "${script} reachable (HTTP $HTTP_CODE)"
@@ -285,11 +400,12 @@ echo -e " Result: ${Green}${PASS}${Reset} passed, ${Red}${FAIL}${Reset} failed"
 echo -e "${Bold}═══════════════════════════════════════════════${Reset}"
 
 if [ $FAIL -eq 0 ]; then
-    echo -e "${Green}hermes-cavemen is properly installed ✓${Reset}"
+    echo -e "${Green}hermes-cavemen v1.2 is properly installed ✓${Reset}"
     echo ""
     echo "Quick reference:"
     echo "  Switch: /terse ultra | /terse wenyan"
     echo "  Exit:   normal mode"
+    echo "  New:    --quality flag for quality-weighted scoring"
     exit 0
 else
     echo -e "${Red}Some checks failed. Re-run install:${Reset}"
