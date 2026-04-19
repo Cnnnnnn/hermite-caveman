@@ -62,6 +62,9 @@ hermes-cavemen: **12 intelligent mechanisms** across v1.0 → v1.2:
 
 Terse Mode activates on every new session automatically.
 
+New in v1.2.1 (SOUL size optimization):
+- **Reduced from 14.4KB → 8.4KB (42% saving)** — all 12 mechanisms preserved, stronger signal-to-noise in SOUL competition
+
 New in v1.2:
 - **Conversation-Level Memory** — track explained topics, compress subsequent mentions more aggressively
 - **Semantic Density Detection** — high-density content (financial/technical terms) gets LESS compression
@@ -291,6 +294,9 @@ hermes-cavemen v1.2：**12 大智能机制**：
 **为什么选这个？** 让你的 AI 更懂上下文。金融文本会留足呼吸空间。它记得你问过什么，能发现自己前后矛盾，还会随着使用越来越懂你喜欢的压缩程度。
 
 Terse Mode 每个新 session 自动激活。
+
+v1.2.1（SOUL 体积优化）：
+- **14.4KB → 8.4KB（节省 42%）** — 12 大机制全部保留，竞争信号更强
 
 v1.2 新功能：
 - **对话级记忆** — 记录已解释的话题，后续引用更激进压缩

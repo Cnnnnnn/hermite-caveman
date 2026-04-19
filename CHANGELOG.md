@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.2.1
+
+### SOUL.md Size Optimization
+- **Reduced from 14.4KB → 8.4KB (42% saving)** while preserving all 12 mechanisms
+- Removed redundant content: decision tree → 8-line prioritized list, duplicate tables → merged, verbose prose → bullet points
+- Surviving mechanisms: Conversation-Level Memory, Semantic Density Detection, AssertionTracker, User Preference Learning, Wenyan Structural Rules, Compression Quality Score, Multilingual Awareness, Adaptive Compression, Auto-Escalation, Code Boundaries, Auto-Clarity, Wenyan Sub-Levels
+- Result: stronger signal-to-noise ratio in SOUL competition, less token overhead per response
+
+---
+
 ## v1.2.0
 
 ### New Features
